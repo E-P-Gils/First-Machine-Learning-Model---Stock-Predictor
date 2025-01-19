@@ -1,65 +1,46 @@
-import requests
 import pandas as pd
 
-# Function to fetch stock data from Alpha Vantage API
-def fetch_stock_data(symbol, interval='1min', api_key='3Q125KZNIUVPXGP2'):
-    url = f"https://www.alphavantage.co/query"
-    params = {
-        "function": "TIME_SERIES_INTRADAY",
-        "symbol": symbol,
-        "interval": interval,
-        "apikey": api_key,
-        "outputsize": "compact"
-    }
-    response = requests.get(url, params=params)
-    data = response.json()
+# Function to load the S&P 500 stock data from CSV
+def load_sp500_data(file_path='./data/sp500.csv'):
+    # Load the CSV data into a DataFrame
+    df = pd.read_csv(file_path)
+    # Ensure the 'date' column is in datetime format
+    df['date'] = pd.to_datetime(df['date'])
+    return df
+
+# Function to get the highest stock on a given date
+def get_highest_stock_on_date(date, data):
+    # Filter the data for the given date
+    daily_data = data[data['date'] == date]
     
-    # Extract the time series data for the given interval
-    time_series = data.get(f"Time Series ({interval})", {})
-    if not time_series:
+    if daily_data.empty:
+        print(f"No data available for {date}.")
         return None
     
-    # Convert the time series data to a pandas DataFrame
-    df = pd.DataFrame.from_dict(time_series, orient='index')
-    df.columns = ['Open', 'High', 'Low', 'Close', 'Volume']
-    df = df.astype(float)
-    df.index = pd.to_datetime(df.index)
-    return df.sort_index()
-
-# Function to get the top 20 stocks with the highest value
-def get_top_20_high_prices(symbols, interval='1min', api_key='3Q125KZNIUVPXGP2'):
-    stocks_data = []
+    # Find the stock with the highest price for the day
+    highest_stock = daily_data.loc[daily_data['high'].idxmax()]
     
-    for symbol in symbols:
-        try:
-            df = fetch_stock_data(symbol, interval, api_key)
-            if df is not None:
-                max_price = df['High'].max()  # Get the highest price for this stock
-                stocks_data.append((symbol, max_price))
-            else:
-                print(f"No data for {symbol}. Skipping...")
-        except Exception as e:
-            print(f"Error fetching data for {symbol}: {e}")
-    
-    # Sort stocks by their highest price and return top 20
-    top_20 = sorted(stocks_data, key=lambda x: x[1], reverse=True)[:20]
-    return top_20
-
-# Load the list of S&P 500 companies from your CSV file
-def load_sp500_companies():
-    file_path = './data/sp500.csv' 
-    # Load the S&P 500 symbols and names into a DataFrame
-    df = pd.read_csv(file_path)
-    return df['Symbol'].tolist()  # Return the list of stock symbols
+    # Return the stock symbol, name, and highest price
+    return highest_stock['Name'], highest_stock['high'], highest_stock['open'], highest_stock['close']
 
 # Example usage
 if __name__ == '__main__':
-    # Load S&P 500 symbols from CSV
-    symbols = load_sp500_companies()
+    # Load the S&P 500 data from the CSV file
+    sp500_data = load_sp500_data()
     
-    # Get the top 20 stocks with the highest price
-    top_20_stocks = get_top_20_high_prices(symbols)
+    # Input: Enter a date (e.g., '2023-06-01')
+    input_date = '2016-06-01'  # Example date (replace with the desired date)
     
-    # Print the top 20 stocks and their highest prices
-    for symbol, max_price in top_20_stocks:
-        print(f"Symbol: {symbol}, Highest Price: {max_price}")
+    # Convert input date to datetime format
+    input_date = pd.to_datetime(input_date)
+    
+    # Get the highest stock for the specified date
+    result = get_highest_stock_on_date(input_date, sp500_data)
+    
+    if result:
+        name, highest_price, open_price, close_price = result
+        print(f"Highest stock on {input_date.strftime('%Y-%m-%d')}:")
+        print(f"Stock Name: {name}")
+        print(f"Opening Price: {open_price}")
+        print(f"Closing Price: {close_price}")
+        print(f"Highest Price: {highest_price}")
